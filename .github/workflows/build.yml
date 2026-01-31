@@ -12,30 +12,32 @@ jobs:
         with:
           channel: 'stable'
           
-      # 1. 先生成 iOS 项目骨架
+      # 1. 生成 iOS 项目骨架
       - name: Create iOS folders
         run: flutter create .
 
-      # 2. 【核心修复】暴力修改项目文件，禁止 Xcode 检查签名
-      - name: Disable Signing in Xcode Project
+      # 2. 【双重暴力修复】禁止 Xcode 检查签名
+      - name: Force Disable Signing
         run: |
-          # 查找 project.pbxproj 文件位置
-          PROJ_PATH="ios/Runner.xcodeproj/project.pbxproj"
+          # 方案 A: 修改 Flutter 的配置文件 (这是最高优先级的覆盖)
+          # 告诉 Flutter：不需要签名，也不允许签名
+          echo "CODE_SIGNING_REQUIRED=NO" >> ios/Flutter/Release.xcconfig
+          echo "CODE_SIGNING_ALLOWED=NO" >> ios/Flutter/Release.xcconfig
+          echo "CODE_SIGN_IDENTITY=" >> ios/Flutter/Release.xcconfig
+          echo "EXPANDED_CODE_SIGN_IDENTITY=" >> ios/Flutter/Release.xcconfig
           
-          # 关闭自动签名
-          sed -i '' 's/ProvisioningStyle = Automatic;/ProvisioningStyle = Manual;/g' $PROJ_PATH
-          # 强制允许不签名
-          sed -i '' 's/CODE_SIGNING_ALLOWED = YES;/CODE_SIGNING_ALLOWED = NO;/g' $PROJ_PATH
-          # 强制不需要签名
-          sed -i '' 's/CODE_SIGNING_REQUIRED = YES;/CODE_SIGNING_REQUIRED = NO;/g' $PROJ_PATH
-          # 清空开发团队 ID
-          sed -i '' 's/DevelopmentTeam = .*/DevelopmentTeam = "";/g' $PROJ_PATH
+          # 方案 B: 直接修改 Xcode 项目文件
+          # 1. 把“自动签名”改成“手动签名”
+          sed -i '' 's/ProvisioningStyle = Automatic;/ProvisioningStyle = Manual;/g' ios/Runner.xcodeproj/project.pbxproj
+          # 2. 把“开发团队 ID”清空
+          sed -i '' 's/DevelopmentTeam = [^;]*;/DevelopmentTeam = "";/g' ios/Runner.xcodeproj/project.pbxproj
 
       - run: flutter pub get
       
       # 3. 打包
       - run: flutter build ios --release --no-codesign
       
+      # 4. 压缩成 IPA
       - run: |
           mkdir Payload
           mv build/ios/iphoneos/Runner.app Payload/
