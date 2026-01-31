@@ -81792,7 +81792,7 @@ $1(a){return this.Vm(a)},
 Vm(a){var s=0,r=A.Q(t.z),q,p=2,o=[],n,m,l,k,j,i,h
 var $async$$1=A.R(function(b,c){if(b===1){o.push(c)
 s=p}for(;;)switch(s){case 0:p=4
-n=A.hN("https://fundgz.1234567.com.cn/js/"+a+".js?rt="+Date.now())
+n=A.hN("https://corsproxy.io/?https://fundgz.1234567.com.cn/js/"+a+".js?rt="+Date.now())
 s=7
 return A.T(A.atW(n).GZ(B.Ef),$async$$1)
 case 7:m=c
@@ -81912,7 +81912,7 @@ r.vg()},
 vg(){var s=0,r=A.Q(t.H),q=1,p=[],o=this,n,m,l,k,j,i,h,g,f,e,d
 var $async$vg=A.R(function(a,b){if(a===1){p.push(b)
 s=q}for(;;)switch(s){case 0:q=3
-n=A.hN("https://fundmobapi.eastmoney.com/FundMNewApi/FundMNHisNetList?product=EFund&appType=ttjj&FCODE="+o.a.c+"&PAGEINDEX=1&PAGESIZE=20")
+n=A.hN("https://corsproxy.io/?https://fundmobapi.eastmoney.com/FundMNewApi/FundMNHisNetList?product=EFund&appType=ttjj&FCODE="+o.a.c+"&PAGEINDEX=1&PAGESIZE=20")
 s=6
 return A.T(A.atW(n),$async$vg)
 case 6:m=b
@@ -82052,7 +82052,7 @@ aey(a){var s=null
 return A.ru(s,s,B.FB,s,s,new A.a2T(this,a),s,s,s)},
 O_(){var s=this.z.a.a
 if(s.length<2)return B.hZ
-return new A.rr(A.atW(A.hN("https://fundsuggest.eastmoney.com/FundSearch/api/FundSearchAPI.ashx?m=1&key="+s)),new A.a2R(this),null,t.dz)}}
+return new A.rr(A.atW(A.hN("https://corsproxy.io/?https://fundsuggest.eastmoney.com/FundSearch/api/FundSearchAPI.ashx?m=1&key="+s)),new A.a2R(this),null,t.dz)}}
 A.a2S.prototype={
 $0(){this.a.sq1("")
 return""},
