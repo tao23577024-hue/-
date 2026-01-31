@@ -12,69 +12,26 @@ jobs:
         with:
           channel: 'stable'
           
-      # 1. 生成项目
       - name: Create iOS folders
         run: flutter create .
 
-      # 2. 【核心修复】智能修改 Podfile 和项目文件
-      # 这一次我们用 Python 做“微创手术”，确保不破坏文件结构
-      - name: Smart Patch with Python
+      # 【核心修复】单行命令注入，绝对不会冲突
+      - name: Patch Podfile and Project
         run: |
-          python3 -c "
-          import re
-          import os
+          # 1. 修改项目文件：强制改为手动签名
+          PBX="ios/Runner.xcodeproj/project.pbxproj"
+          sed -i '' 's/ProvisioningStyle = Automatic;/ProvisioningStyle = Manual;/g' $PBX
+          sed -i '' 's/CODE_SIGNING_REQUIRED = YES;/CODE_SIGNING_REQUIRED = NO;/g' $PBX
+          sed -i '' 's/CODE_SIGNING_ALLOWED = YES;/CODE_SIGNING_ALLOWED = NO;/g' $PBX
+          # 删除 Team ID
+          sed -i '' '/DevelopmentTeam/d' $PBX
 
-          # === A. 修改项目文件 (欺骗 Xcode) ===
-          project_path = 'ios/Runner.xcodeproj/project.pbxproj'
-          with open(project_path, 'r') as f:
-              content = f.read()
+          # 2. 修改 Podfile：使用 sed 在现有的 post_install 后面插入一行代码
+          # 这行 Ruby 代码的作用是：遍历所有第三方库，把它们的签名要求全部关掉
+          PODFILE="ios/Podfile"
+          sed -i '' "/post_install do |installer|/a\\
+            installer.pods_project.targets.each { |t| t.build_configurations.each { |c| c.build_settings['CODE_SIGNING_REQUIRED'] = 'NO'; c.build_settings['CODE_SIGNING_ALLOWED'] = 'NO'; c.build_settings['CODE_SIGN_IDENTITY'] = '-'; } }" $PODFILE
 
-          # 1. 自动签名 -> 手动签名
-          content = content.replace('ProvisioningStyle = Automatic;', 'ProvisioningStyle = Manual;')
-          # 2. 清除团队 ID
-          content = re.sub(r'DevelopmentTeam = [^;]*;', 'DevelopmentTeam = \"\";', content)
-          # 3. 伪造 Ad Hoc 签名 (-)
-          content = re.sub(r'CODE_SIGN_IDENTITY = \"[^\"]*\";', 'CODE_SIGN_IDENTITY = \"-\";', content)
-          content = re.sub(r'\"CODE_SIGN_IDENTITY\[sdk=iphoneos\*\]\" = \"[^\"]*\";', '\"CODE_SIGN_IDENTITY[sdk=iphoneos*]\" = \"-\";', content)
-          # 4. 关闭强制签名
-          content = re.sub(r'CODE_SIGNING_REQUIRED = YES;', 'CODE_SIGNING_REQUIRED = NO;', content)
-          content = re.sub(r'CODE_SIGNING_ALLOWED = YES;', 'CODE_SIGNING_ALLOWED = NO;', content)
-
-          with open(project_path, 'w') as f:
-              f.write(content)
-          print('✅ 项目文件修改完成')
-
-          # === B. 修改 Podfile (修复之前的报错) ===
-          podfile_path = 'ios/Podfile'
-          with open(podfile_path, 'r') as f:
-              pod_content = f.read()
-
-          # 我们要插入的代码：强制所有第三方库也不签名
-          injection = \"\"\"
-            installer.pods_project.targets.each do |target|
-              target.build_configurations.each do |config|
-                config.build_settings['CODE_SIGNING_ALLOWED'] = 'NO'
-                config.build_settings['CODE_SIGNING_REQUIRED'] = 'NO'
-                config.build_settings['CODE_SIGN_IDENTITY'] = '-'
-                config.build_settings['EXPANDED_CODE_SIGN_IDENTITY'] = '-'
-              end
-            end
-          \"\"\"
-
-          # 关键逻辑：找到现有的 post_install 钩子，把我们的代码插入进去
-          # 而不是像上次那样在文件末尾追加，导致报错
-          if 'post_install do |installer|' in pod_content:
-              pod_content = pod_content.replace('post_install do |installer|', 'post_install do |installer|' + injection)
-          else:
-              # 如果万一没有，才追加
-              pod_content += '\npost_install do |installer|\n' + injection + '\nend\n'
-
-          with open(podfile_path, 'w') as f:
-              f.write(pod_content)
-          print('✅ Podfile 修复完成')
-          "
-
-      # 3. 补充配置
       - name: Patch XCConfig
         run: |
           CONFIG="ios/Flutter/Release.xcconfig"
@@ -84,10 +41,8 @@ jobs:
 
       - run: flutter pub get
       
-      # 4. 打包
       - run: flutter build ios --release --no-codesign
       
-      # 5. 生成 IPA
       - run: |
           mkdir Payload
           mv build/ios/iphoneos/Runner.app Payload/
