@@ -1,16 +1,14 @@
 import 'dart:async';
 import 'dart:convert';
-import 'dart:ui';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:google_generative_ai/google_generative_ai.dart';
 
-// ==========================================
-//  AIzaSyC-XpOZ6hvyviJa65_Si0Ka3gji9hhSUt8
-// ==========================================
-const String apiKey = '在此处粘贴你的API_KEY'; 
+// ================= 配置区 =================
+const String apiKey = '在此处粘贴你的API_KEY';
+// ========================================
 
 void main() {
   runApp(const MyApp());
@@ -22,292 +20,510 @@ class MyApp extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
-      title: 'Glass Fund',
+      title: 'Gray Fund',
       debugShowCheckedModeBanner: false,
-      theme: ThemeData(
-        fontFamily: '.SF Pro Text', // 尝试调用 iOS 系统字体
-        scaffoldBackgroundColor: Colors.black, // 深色底兼容
+      theme: ThemeData.dark().copyWith(
+        scaffoldBackgroundColor: const Color(0xFF303030), // 中灰色背景
+        primaryColor: Colors.blueGrey,
+        cardColor: const Color(0xFF424242), // 卡片稍亮一点
+        dialogBackgroundColor: const Color(0xFF424242),
       ),
-      home: const GlassHome(),
+      home: const HomeScreen(),
     );
   }
 }
 
-// 玻璃特效组件
-class GlassBox extends StatelessWidget {
-  final Widget child;
-  final double opacity;
-  final EdgeInsetsGeometry? padding;
-  final EdgeInsetsGeometry? margin;
-
-  const GlassBox({super.key, required this.child, this.opacity = 0.15, this.padding, this.margin});
-
+class HomeScreen extends StatefulWidget {
+  const HomeScreen({super.key});
   @override
-  Widget build(BuildContext context) {
-    return Container(
-      margin: margin,
-      child: ClipRRect(
-        borderRadius: BorderRadius.circular(20),
-        child: BackdropFilter(
-          filter: ImageFilter.blur(sigmaX: 20, sigmaY: 20), // 强磨砂
-          child: Container(
-            padding: padding,
-            decoration: BoxDecoration(
-              color: Colors.white.withOpacity(opacity),
-              border: Border.all(color: Colors.white.withOpacity(0.2), width: 0.5),
-              boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.1), blurRadius: 10)],
-            ),
-            child: child,
-          ),
-        ),
-      ),
-    );
-  }
+  State<HomeScreen> createState() => _HomeScreenState();
 }
 
-class GlassHome extends StatefulWidget {
-  const GlassHome({super.key});
-  @override
-  State<GlassHome> createState() => _GlassHomeState();
-}
-
-class _GlassHomeState extends State<GlassHome> {
-  int _index = 0;
-  final List<Widget> _pages = [const FundPage(), const ChatPage()];
+class _HomeScreenState extends State<HomeScreen> {
+  int _currentIndex = 0;
+  final List<Widget> _pages = [
+    const PortfolioPage(),
+    const ChatPage(),
+  ];
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      extendBody: true, // 让内容延伸到任何地方
-      body: Stack(
-        children: [
-          // 1. 动态极光背景
-          Container(
-            decoration: const BoxDecoration(
-              gradient: LinearGradient(
-                begin: Alignment.topLeft,
-                end: Alignment.bottomRight,
-                colors: [Color(0xFF4A00E0), Color(0xFF8E2DE2), Color(0xFF000000)], // 深邃紫黑风
-              ),
-            ),
-          ),
-          // 装饰光球
-          Positioned(top: -100, right: -100, child: Container(width: 300, height: 300, decoration: BoxDecoration(color: const Color(0xFF00C6FF).withOpacity(0.4), shape: BoxShape.circle, boxShadow: [BoxShadow(blurRadius: 100, color: const Color(0xFF00C6FF))]))),
-          Positioned(bottom: 100, left: -50, child: Container(width: 250, height: 250, decoration: BoxDecoration(color: const Color(0xFFFF0099).withOpacity(0.3), shape: BoxShape.circle, boxShadow: [BoxShadow(blurRadius: 100, color: const Color(0xFFFF0099))]))),
-
-          // 2. 页面内容
-          SafeArea(child: _pages[_index]),
-        ],
-      ),
-      // 3. 悬浮玻璃导航
-      bottomNavigationBar: Container(
-        margin: const EdgeInsets.fromLTRB(40, 0, 40, 40),
-        height: 70,
-        child: GlassBox(
-          opacity: 0.1,
-          child: Row(
-            mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-            children: [
-              _btn(0, CupertinoIcons.graph_square_fill, "行情"),
-              const VerticalDivider(color: Colors.white24, width: 1, indent: 15, endIndent: 15),
-              _btn(1, CupertinoIcons.chat_bubble_text_fill, "AI 助理"),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-
-  Widget _btn(int i, IconData icon, String txt) {
-    final bool sel = _index == i;
-    return GestureDetector(
-      onTap: () => setState(() => _index = i),
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          Icon(icon, color: sel ? Colors.white : Colors.white38, size: 28),
-          const SizedBox(height: 4),
-          Text(txt, style: TextStyle(color: sel ? Colors.white : Colors.white38, fontSize: 10, fontWeight: FontWeight.bold)),
+      body: SafeArea(child: _pages[_currentIndex]),
+      bottomNavigationBar: BottomNavigationBar(
+        backgroundColor: const Color(0xFF212121), // 深灰底栏
+        selectedItemColor: Colors.white,
+        unselectedItemColor: Colors.grey,
+        currentIndex: _currentIndex,
+        onTap: (index) => setState(() => _currentIndex = index),
+        items: const [
+          BottomNavigationBarItem(icon: Icon(Icons.pie_chart), label: '持仓'),
+          BottomNavigationBarItem(icon: Icon(Icons.psychology), label: 'AI 分析'),
         ],
       ),
     );
   }
 }
 
-// 基金页
-class FundPage extends StatefulWidget {
-  const FundPage({super.key});
+// ================= 1. 持仓页面 (核心功能) =================
+
+class PortfolioPage extends StatefulWidget {
+  const PortfolioPage({super.key});
   @override
-  State<FundPage> createState() => _FundPageState();
+  State<PortfolioPage> createState() => _PortfolioPageState();
 }
 
-class _FundPageState extends State<FundPage> {
-  List<String> codes = ['009052', '012414'];
-  List<Map> data = [];
-  Timer? t;
+class _PortfolioPageState extends State<PortfolioPage> {
+  // 数据结构：Code -> Amount (持有金额)
+  Map<String, double> myFunds = {'009052': 1000.0, '012414': 500.0};
+  List<Map<String, dynamic>> displayData = [];
+  Timer? _timer;
+  bool _isLoading = false;
 
   @override
   void initState() {
     super.initState();
-    _load();
-    t = Timer.periodic(const Duration(seconds: 10), (_) => _fetch());
+    _loadLocalData();
+    _timer = Timer.periodic(const Duration(seconds: 10), (_) => _fetchOnlineData());
   }
-  @override void dispose() { t?.cancel(); super.dispose(); }
 
-  Future<void> _load() async {
-    final p = await SharedPreferences.getInstance();
-    final s = p.getStringList('c');
-    if (s != null) codes = s;
-    _fetch();
+  @override
+  void dispose() {
+    _timer?.cancel();
+    super.dispose();
   }
-  Future<void> _save() async { final p = await SharedPreferences.getInstance(); p.setStringList('c', codes); }
 
-  Future<void> _fetch() async {
-    List<Map> tmp = [];
-    for (var c in codes) {
-      try {
-        final r = await http.get(Uri.parse("http://fundgz.1234567.com.cn/js/$c.js?rt=${DateTime.now().millisecondsSinceEpoch}"));
-        if (r.statusCode == 200) {
-          final s = r.body;
-          tmp.add(json.decode(s.substring(8, s.length - 2)));
-        }
-      } catch (_) {}
+  // 加载本地存的“代码”和“金额”
+  Future<void> _loadLocalData() async {
+    final prefs = await SharedPreferences.getInstance();
+    final String? jsonStr = prefs.getString('my_portfolio');
+    if (jsonStr != null) {
+      Map<String, dynamic> decoded = json.decode(jsonStr);
+      // 转换 dynamic 为 double
+      setState(() {
+        myFunds = decoded.map((key, value) => MapEntry(key, (value as num).toDouble()));
+      });
     }
-    if (mounted) setState(() => data = tmp);
+    _fetchOnlineData();
   }
 
-  void _add(String c) { if(!codes.contains(c)) { setState(() => codes.add(c)); _save(); _fetch(); } }
-  void _del(String c) { setState(() { codes.remove(c); data.removeWhere((e)=>e['fundcode']==c); }); _save(); }
+  // 保存数据
+  Future<void> _saveLocalData() async {
+    final prefs = await SharedPreferences.getInstance();
+    String jsonStr = json.encode(myFunds);
+    await prefs.setString('my_portfolio', jsonStr);
+    _fetchOnlineData(); // 重新刷新界面
+  }
+
+  // 获取实时估值
+  Future<void> _fetchOnlineData() async {
+    if (myFunds.isEmpty) {
+      if (mounted) setState(() => displayData = []);
+      return;
+    }
+
+    List<Map<String, dynamic>> tempResults = [];
+    double totalProfit = 0.0;
+
+    for (var entry in myFunds.entries) {
+      String code = entry.key;
+      double amount = entry.value;
+
+      try {
+        final url = Uri.parse("http://fundgz.1234567.com.cn/js/$code.js?rt=${DateTime.now().millisecondsSinceEpoch}");
+        final response = await http.get(url);
+        
+        if (response.statusCode == 200) {
+          String body = response.body;
+          if (body.length > 10) {
+            final jsonStr = body.substring(8, body.length - 2);
+            final data = json.decode(jsonStr);
+            
+            // 计算当日收益
+            double rate = double.tryParse(data['gszzl']) ?? 0.0;
+            double profit = amount * (rate / 100);
+            
+            tempResults.add({
+              'code': data['fundcode'],
+              'name': data['name'],
+              'rate': rate, // 涨跌幅 %
+              'val': data['gsz'], // 净值
+              'amount': amount, // 持仓金额
+              'profit': profit, // 当日盈亏金额
+              'time': data['gztime']
+            });
+          }
+        }
+      } catch (e) {
+        // 获取失败保留旧数据或显示错误
+      }
+    }
+
+    if (mounted) {
+      setState(() {
+        displayData = tempResults;
+      });
+    }
+  }
+
+  // 修改仓位弹窗
+  void _editPosition(String code, double currentAmount) {
+    TextEditingController _ctrl = TextEditingController(text: currentAmount.toString());
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text("调整持仓金额"),
+        content: TextField(
+          controller: _ctrl,
+          keyboardType: TextInputType.number,
+          decoration: const InputDecoration(suffixText: "元"),
+          autofocus: true,
+        ),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text("取消")),
+          TextButton(
+            onPressed: () {
+              double? newAmount = double.tryParse(_ctrl.text);
+              if (newAmount != null) {
+                setState(() {
+                  myFunds[code] = newAmount;
+                });
+                _saveLocalData();
+                Navigator.pop(ctx);
+              }
+            },
+            child: const Text("确认", style: TextStyle(color: Colors.blue)),
+          ),
+        ],
+      ),
+    );
+  }
+
+  // 添加基金逻辑
+  void _addNewFund(String code) {
+    if (!myFunds.containsKey(code)) {
+      setState(() {
+        myFunds[code] = 0.0; // 默认持有 0 元
+      });
+      _saveLocalData();
+      // 自动弹出编辑框让用户输钱
+      Future.delayed(const Duration(milliseconds: 500), () {
+        _editPosition(code, 0.0);
+      });
+    }
+  }
+
+  // 删除基金
+  void _deleteFund(String code) {
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text("确认删除?"),
+        content: const Text("将从列表中移除该基金。"),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text("取消")),
+          TextButton(
+             onPressed: () {
+               setState(() {
+                 myFunds.remove(code);
+                 displayData.removeWhere((element) => element['code'] == code);
+               });
+               _saveLocalData();
+               Navigator.pop(ctx);
+             }, 
+             child: const Text("删除", style: TextStyle(color: Colors.red))
+          ),
+        ],
+      ),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    // 算总收益
+    double totalDayProfit = displayData.fold(0.0, (sum, item) => sum + item['profit']);
+    double totalAssets = displayData.fold(0.0, (sum, item) => sum + item['amount']);
+
+    return Column(
+      children: [
+        // 顶部总览卡片
+        Container(
+          width: double.infinity,
+          margin: const EdgeInsets.all(16),
+          padding: const EdgeInsets.all(20),
+          decoration: BoxDecoration(
+            color: const Color(0xFF424242),
+            borderRadius: BorderRadius.circular(12),
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Text("总资产 (估)", style: TextStyle(color: Colors.white70, fontSize: 14)),
+              const SizedBox(height: 8),
+              Text(totalAssets.toStringAsFixed(2), style: const TextStyle(fontSize: 32, fontWeight: FontWeight.bold, color: Colors.white)),
+              const SizedBox(height: 16),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  const Text("当日预估收益:", style: TextStyle(color: Colors.white70)),
+                  Text(
+                    "${totalDayProfit >= 0 ? '+' : ''}${totalDayProfit.toStringAsFixed(2)}",
+                    style: TextStyle(
+                      fontSize: 18, 
+                      fontWeight: FontWeight.bold,
+                      color: totalDayProfit >= 0 ? const Color(0xFFFF5252) : const Color(0xFF69F0AE),
+                    ),
+                  ),
+                ],
+              )
+            ],
+          ),
+        ),
+
+        // 列表标题 + 添加按钮
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              const Text("持仓列表", style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Colors.white)),
+              IconButton(
+                icon: const Icon(Icons.add_circle, color: Colors.blueAccent, size: 28),
+                onPressed: () => showSearch(context: context, delegate: FundSearchDelegate(_addNewFund)),
+              )
+            ],
+          ),
+        ),
+
+        // 列表区
+        Expanded(
+          child: displayData.isEmpty 
+          ? const Center(child: Text("暂无持仓，点击右上角 + 添加", style: TextStyle(color: Colors.grey)))
+          : ListView.builder(
+              itemCount: displayData.length,
+              itemBuilder: (context, index) {
+                final item = displayData[index];
+                bool isUp = item['rate'] >= 0;
+                Color valueColor = isUp ? const Color(0xFFFF5252) : const Color(0xFF69F0AE); // 红涨绿跌
+
+                return GestureDetector(
+                  onTap: () => _editPosition(item['code'], item['amount']),
+                  onLongPress: () => _deleteFund(item['code']),
+                  child: Container(
+                    margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
+                    padding: const EdgeInsets.all(16),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFF424242), // 卡片颜色
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    child: Row(
+                      children: [
+                        // 左侧：名称和代码
+                        Expanded(
+                          flex: 3,
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(item['name'], style: const TextStyle(fontSize: 16, color: Colors.white, fontWeight: FontWeight.w500), maxLines: 1, overflow: TextOverflow.ellipsis),
+                              const SizedBox(height: 4),
+                              Text("${item['code']}  持有: ${item['amount'].toInt()}", style: const TextStyle(fontSize: 12, color: Colors.grey)),
+                            ],
+                          ),
+                        ),
+                        // 中间：估值与涨跌
+                        Expanded(
+                          flex: 2,
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.end,
+                            children: [
+                              Text(item['val'], style: const TextStyle(fontSize: 16, color: Colors.white)),
+                              Text("${isUp ? '+' : ''}${item['rate']}%", style: TextStyle(fontSize: 12, color: valueColor)),
+                            ],
+                          ),
+                        ),
+                        // 右侧：收益金额
+                        Expanded(
+                          flex: 2,
+                          child: Container(
+                            alignment: Alignment.centerRight,
+                            child: Text(
+                              "${item['profit'] >= 0 ? '+' : ''}${item['profit'].toStringAsFixed(1)}",
+                              style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: valueColor),
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                );
+              },
+            ),
+        ),
+      ],
+    );
+  }
+}
+
+// ================= 2. AI 助手页面 (简洁对话框) =================
+
+class ChatPage extends StatefulWidget {
+  const ChatPage({super.key});
+  @override
+  State<ChatPage> createState() => _ChatPageState();
+}
+
+class _ChatPageState extends State<ChatPage> {
+  final TextEditingController _textCtrl = TextEditingController();
+  final List<Map<String, String>> _messages = []; // 'role': 'user'/'ai', 'msg': '...'
+  bool _isLoading = false;
+  GenerativeModel? _model;
+  ChatSession? _chat;
+
+  @override
+  void initState() {
+    super.initState();
+    if (apiKey.length > 10) {
+      _model = GenerativeModel(model: 'gemini-pro', apiKey: apiKey);
+      _chat = _model!.startChat();
+    }
+  }
+
+  void _sendMessage() async {
+    final text = _textCtrl.text.trim();
+    if (text.isEmpty) return;
+    
+    setState(() {
+      _messages.add({'role': 'user', 'msg': text});
+      _isLoading = true;
+      _textCtrl.clear();
+    });
+
+    try {
+      // 如果没有 Key
+      if (_chat == null) throw Exception("No API Key");
+
+      final response = await _chat!.sendMessage(Content.text(text));
+      setState(() {
+        _messages.add({'role': 'ai', 'msg': response.text ?? '无回复'});
+        _isLoading = false;
+      });
+    } catch (e) {
+      setState(() {
+        _messages.add({'role': 'ai', 'msg': '连接失败，请检查 API Key。'});
+        _isLoading = false;
+      });
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
     return Column(
       children: [
-        Padding(
-          padding: const EdgeInsets.all(20),
-          child: Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              const Text("我的持仓", style: TextStyle(color: Colors.white, fontSize: 32, fontWeight: FontWeight.bold)),
-              IconButton(icon: const Icon(CupertinoIcons.add_circled, color: Colors.white, size: 30), onPressed: () => showSearch(context: context, delegate: S(_add))),
-            ],
-          ),
+        // 顶部标题
+        Container(
+          padding: const EdgeInsets.all(16),
+          alignment: Alignment.centerLeft,
+          child: const Text("AI 投资顾问", style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold, color: Colors.white)),
         ),
+        // 消息列表
         Expanded(
           child: ListView.builder(
-            padding: const EdgeInsets.only(bottom: 120),
-            itemCount: data.length,
-            itemBuilder: (ctx, i) {
-              final d = data[i];
-              final r = double.tryParse(d['gszzl']) ?? 0;
-              final col = r >= 0 ? const Color(0xFFFF4D4D) : const Color(0xFF00E676); // 荧光红绿
-              return Dismissible(
-                key: Key(d['fundcode']),
-                onDismissed: (_) => _del(d['fundcode']),
-                child: GlassBox(
-                  margin: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
-                  padding: const EdgeInsets.all(20),
-                  child: Row(
-                    children: [
-                      Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                        Text(d['name'], style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 16), maxLines: 1),
-                        const SizedBox(height: 5),
-                        Text(d['fundcode'], style: const TextStyle(color: Colors.white54, fontSize: 12)),
-                      ])),
-                      Column(crossAxisAlignment: CrossAxisAlignment.end, children: [
-                        Text(d['gsz'], style: const TextStyle(color: Colors.white, fontSize: 22, fontWeight: FontWeight.bold)),
-                        Text("${r>=0?'+':''}${d['gszzl']}%", style: TextStyle(color: col, fontWeight: FontWeight.bold)),
-                      ])
-                    ],
+            padding: const EdgeInsets.symmetric(horizontal: 16),
+            itemCount: _messages.length,
+            itemBuilder: (context, index) {
+              final msg = _messages[index];
+              bool isUser = msg['role'] == 'user';
+              return Align(
+                alignment: isUser ? Alignment.centerRight : Alignment.centerLeft,
+                child: Container(
+                  margin: const EdgeInsets.symmetric(vertical: 8),
+                  padding: const EdgeInsets.all(12),
+                  constraints: const BoxConstraints(maxWidth: 300),
+                  decoration: BoxDecoration(
+                    color: isUser ? Colors.blueAccent : const Color(0xFF424242),
+                    borderRadius: BorderRadius.circular(12),
                   ),
+                  child: Text(msg['msg']!, style: const TextStyle(color: Colors.white, fontSize: 15)),
                 ),
               );
             },
           ),
         ),
+        if (_isLoading) const Padding(padding: EdgeInsets.all(8.0), child: CupertinoActivityIndicator(color: Colors.white)),
+        // 输入框
+        Container(
+          padding: const EdgeInsets.all(12),
+          color: const Color(0xFF212121),
+          child: Row(
+            children: [
+              Expanded(
+                child: TextField(
+                  controller: _textCtrl,
+                  style: const TextStyle(color: Colors.white),
+                  decoration: InputDecoration(
+                    hintText: "输入问题...",
+                    hintStyle: const TextStyle(color: Colors.grey),
+                    filled: true,
+                    fillColor: const Color(0xFF424242),
+                    border: OutlineInputBorder(borderRadius: BorderRadius.circular(20), borderSide: BorderSide.none),
+                    contentPadding: const EdgeInsets.symmetric(horizontal: 16),
+                  ),
+                  onSubmitted: (_) => _sendMessage(),
+                ),
+              ),
+              const SizedBox(width: 8),
+              IconButton(icon: const Icon(Icons.send, color: Colors.blueAccent), onPressed: _sendMessage),
+            ],
+          ),
+        ),
       ],
     );
   }
 }
 
-// 搜索代理
-class S extends SearchDelegate {
-  final Function(String) cb; S(this.cb);
-  @override List<Widget>? buildActions(BuildContext context) => [IconButton(icon:const Icon(Icons.clear),onPressed:()=>query='')];
-  @override Widget? buildLeading(BuildContext context) => IconButton(icon:const Icon(Icons.arrow_back),onPressed:()=>close(context,null));
-  @override Widget buildResults(BuildContext context) => _f();
-  @override Widget buildSuggestions(BuildContext context) => _f();
-  Widget _f() {
+// ================= 3. 搜索组件 =================
+
+class FundSearchDelegate extends SearchDelegate {
+  final Function(String) onSelect;
+  FundSearchDelegate(this.onSelect);
+
+  @override
+  ThemeData appBarTheme(BuildContext context) {
+    return ThemeData.dark().copyWith(
+      scaffoldBackgroundColor: const Color(0xFF303030),
+      appBarTheme: const AppBarTheme(backgroundColor: Color(0xFF424242)),
+    );
+  }
+
+  @override List<Widget>? buildActions(BuildContext context) => [IconButton(icon: const Icon(Icons.clear), onPressed: () => query = '')];
+  @override Widget? buildLeading(BuildContext context) => IconButton(icon: const Icon(Icons.arrow_back), onPressed: () => close(context, null));
+  @override Widget buildResults(BuildContext context) => _search();
+  @override Widget buildSuggestions(BuildContext context) => _search();
+
+  Widget _search() {
     if (query.length < 2) return const SizedBox();
     return FutureBuilder(
       future: http.get(Uri.parse("http://fundsuggest.eastmoney.com/FundSearch/api/FundSearchAPI.ashx?m=1&key=$query")),
-      builder: (c, s) {
-        if (!s.hasData) return const Center(child: CupertinoActivityIndicator());
+      builder: (context, snapshot) {
+        if (!snapshot.hasData) return const Center(child: CupertinoActivityIndicator(color: Colors.white));
         try {
-          final l = json.decode(s.data!.body)['Datas'] as List;
-          return ListView.builder(itemCount: l.length, itemBuilder: (c, i) => ListTile(title: Text(l[i]['NAME']), subtitle: Text(l[i]['CODE']), onTap: (){ cb(l[i]['CODE']); close(c,null); }));
-        } catch (_) { return const SizedBox(); }
+          final List datas = json.decode(snapshot.data!.body)['Datas'];
+          return ListView.builder(
+            itemCount: datas.length,
+            itemBuilder: (context, index) {
+              final item = datas[index];
+              return ListTile(
+                title: Text(item['NAME'], style: const TextStyle(color: Colors.white)),
+                subtitle: Text(item['CODE'], style: const TextStyle(color: Colors.grey)),
+                onTap: () {
+                  onSelect(item['CODE']);
+                  close(context, null);
+                },
+              );
+            },
+          );
+        } catch (e) { return const SizedBox(); }
       },
-    );
-  }
-}
-
-// 聊天页
-class ChatPage extends StatefulWidget {
-  const ChatPage({super.key});
-  @override State<ChatPage> createState() => _ChatPageState();
-}
-class _ChatPageState extends State<ChatPage> {
-  final _c = TextEditingController();
-  final List<Map> _m = [];
-  bool _ld = false;
-  GenerativeModel? _gm; ChatSession? _cs;
-
-  @override void initState() {
-    super.initState();
-    if(apiKey.length > 10) { _gm = GenerativeModel(model: 'gemini-pro', apiKey: apiKey); _cs = _gm!.startChat(); }
-  }
-
-  void _s() async {
-    final t = _c.text; if(t.isEmpty) return;
-    setState(() { _m.add({'t':t,'u':true}); _ld=true; _c.clear(); });
-    try {
-      final r = await _cs!.sendMessage(Content.text(t));
-      setState(() { _m.add({'t':r.text,'u':false}); _ld=false; });
-    } catch (e) { setState(() { _m.add({'t':'Error','u':false}); _ld=false; }); }
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    if(apiKey.length < 10) return const Center(child: Text("请填入 API Key", style: TextStyle(color: Colors.white)));
-    return Column(
-      children: [
-        const Padding(padding: EdgeInsets.all(20), child: Align(alignment: Alignment.centerLeft, child: Text("AI 助手", style: TextStyle(color: Colors.white, fontSize: 32, fontWeight: FontWeight.bold)))),
-        Expanded(child: ListView.builder(
-          padding: const EdgeInsets.fromLTRB(20,0,20,120),
-          itemCount: _m.length,
-          itemBuilder: (c,i) => Align(
-            alignment: _m[i]['u'] ? Alignment.centerRight : Alignment.centerLeft,
-            child: GlassBox(
-              margin: const EdgeInsets.symmetric(vertical: 6),
-              padding: const EdgeInsets.all(12),
-              opacity: _m[i]['u'] ? 0.3 : 0.1,
-              child: Text(_m[i]['t'], style: const TextStyle(color: Colors.white)),
-            ),
-          ),
-        )),
-        if(_ld) const CupertinoActivityIndicator(color: Colors.white),
-        Container(
-          margin: const EdgeInsets.fromLTRB(20,0,20,100),
-          height: 50,
-          child: GlassBox(
-            child: Row(children: [
-              Expanded(child: TextField(controller: _c, style: const TextStyle(color: Colors.white), decoration: const InputDecoration(border: InputBorder.none, hintText: " 聊聊市场...", hintStyle: TextStyle(color: Colors.white38)), onSubmitted: (_)=>_s())),
-              IconButton(icon: const Icon(Icons.send, color: Colors.white), onPressed: _s)
-            ]),
-          ),
-        )
-      ],
     );
   }
 }
