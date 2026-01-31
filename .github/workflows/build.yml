@@ -3,8 +3,8 @@ on: [push, workflow_dispatch]
 
 jobs:
   build:
-    # 关键修改：降级到 macOS 13 (Xcode 14/15)，绕过新版 Xcode 的强制签名检查
-    runs-on: macos-13
+    # 必须使用最新系统，因为 macos-13 已经被 GitHub 下架了
+    runs-on: macos-latest
     
     steps:
       - uses: actions/checkout@v3
@@ -13,34 +13,41 @@ jobs:
         with:
           channel: 'stable'
           
-      # 1. 生成 iOS 项目
+      # 1. 生成 iOS 项目骨架
       - name: Create iOS folders
         run: flutter create .
 
-      # 2. 暴力破解签名限制 (针对旧版环境优化)
-      - name: Disable Signing
+      # 2. 【核弹级】彻底粉碎签名要求 (适配最新 Xcode)
+      - name: Nuke Signing Requirements
         run: |
-          # 1. 注入配置到 Flutter 配置文件 (最高优先级)
-          echo "CODE_SIGNING_REQUIRED=NO" >> ios/Flutter/Release.xcconfig
-          echo "CODE_SIGNING_ALLOWED=NO" >> ios/Flutter/Release.xcconfig
-          echo "CODE_SIGN_IDENTITY=" >> ios/Flutter/Release.xcconfig
-          echo "EXPANDED_CODE_SIGN_IDENTITY=" >> ios/Flutter/Release.xcconfig
+          # 找到项目文件路径
+          PBX="ios/Runner.xcodeproj/project.pbxproj"
           
-          # 2. 修改 Xcode 项目文件 (使用更宽松的正则匹配)
-          # 将自动签名改为手动
-          sed -i '' 's/ProvisioningStyle = .*/ProvisioningStyle = Manual;/g' ios/Runner.xcodeproj/project.pbxproj
-          # 清空开发团队 ID
-          sed -i '' 's/DevelopmentTeam = .*/DevelopmentTeam = "";/g' ios/Runner.xcodeproj/project.pbxproj
-          # 强制关闭签名要求
-          sed -i '' 's/CODE_SIGNING_REQUIRED = .*/CODE_SIGNING_REQUIRED = NO;/g' ios/Runner.xcodeproj/project.pbxproj
-          sed -i '' 's/CODE_SIGNING_ALLOWED = .*/CODE_SIGNING_ALLOWED = NO;/g' ios/Runner.xcodeproj/project.pbxproj
+          # A. 暴力移除“开发团队”字段
+          sed -i '' 's/DevelopmentTeam = .*/DevelopmentTeam = "";/g' $PBX
+          
+          # B. 强制改为“手动签名”模式
+          sed -i '' 's/ProvisioningStyle = Automatic;/ProvisioningStyle = Manual;/g' $PBX
+          
+          # C. 在项目级别强制关闭签名
+          sed -i '' 's/CODE_SIGNING_REQUIRED = YES;/CODE_SIGNING_REQUIRED = NO;/g' $PBX
+          sed -i '' 's/CODE_SIGNING_ALLOWED = YES;/CODE_SIGNING_ALLOWED = NO;/g' $PBX
+          
+          # D. 【最关键一步】向 Flutter 配置文件注入“禁止签名”指令
+          # 这会覆盖掉 Xcode 的默认设置
+          CONFIG="ios/Flutter/Release.xcconfig"
+          echo "" >> $CONFIG
+          echo "CODE_SIGNING_REQUIRED=NO" >> $CONFIG
+          echo "CODE_SIGNING_ALLOWED=NO" >> $CONFIG
+          echo "CODE_SIGN_IDENTITY=" >> $CONFIG
+          echo "EXPANDED_CODE_SIGN_IDENTITY=" >> $CONFIG
 
       - run: flutter pub get
       
-      # 3. 打包 (这一步在 macos-13 上通常能通过)
+      # 3. 打包
       - run: flutter build ios --release --no-codesign
       
-      # 4. 生成 IPA
+      # 4. 生成文件
       - run: |
           mkdir Payload
           mv build/ios/iphoneos/Runner.app Payload/
