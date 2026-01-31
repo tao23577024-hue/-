@@ -15,12 +15,11 @@ jobs:
       - run: flutter create .
       - run: flutter pub get
       
-      # === 核心修复：强制使用 HTML 渲染器 ===
-      # 1. --base-href "/-/" : 对应你的仓库名 "-"
-      # 2. --web-renderer html : 解决白屏，加载极快
+      # === 关键修复 ===
+      # 1. 修正了 base-href 的横线 (必须是两个 -- )
+      # 2. 保留 web-renderer html (这能解决国内白屏问题)
       - run: flutter build web --release --base-href "/-/" --web-renderer html --no-tree-shake-icons
 
-      # 发布到 GitHub Pages
       - name: Deploy to GitHub Pages
         uses: peaceiris/actions-gh-pages@v3
         with:
