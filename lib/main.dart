@@ -74,7 +74,7 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 }
 
-// ================= 1. 持仓页面 (已修复跨域) =================
+// ================= 1. 持仓页面 (更换新代理) =================
 
 class PortfolioPage extends StatefulWidget {
   const PortfolioPage({super.key});
@@ -135,6 +135,7 @@ class _PortfolioPageState extends State<PortfolioPage> {
     _fetchOnlineData();
   }
 
+  // === 核心修复区：使用 AllOrigins 代理 ===
   Future<void> _fetchOnlineData() async {
     if (myFunds.isEmpty) {
       if (mounted) setState(() { displayData = []; _isLoading = false; });
@@ -144,9 +145,12 @@ class _PortfolioPageState extends State<PortfolioPage> {
     
     final requests = myFunds.keys.map((code) async {
       try {
-        // === 修复点 1：获取实时估值，添加 corsproxy.io 前缀 ===
-        final url = Uri.parse("https://corsproxy.io/?https://fundgz.1234567.com.cn/js/$code.js?rt=${DateTime.now().millisecondsSinceEpoch}");
-        final response = await http.get(url).timeout(const Duration(seconds: 3));
+        // 目标网址
+        final targetUrl = "https://fundgz.1234567.com.cn/js/$code.js?rt=${DateTime.now().millisecondsSinceEpoch}";
+        // 使用新代理并编码
+        final proxyUrl = Uri.parse("https://api.allorigins.win/raw?url=${Uri.encodeComponent(targetUrl)}");
+        
+        final response = await http.get(proxyUrl).timeout(const Duration(seconds: 5));
         
         if (response.statusCode == 200) {
           String body = utf8.decode(response.bodyBytes);
@@ -213,7 +217,6 @@ class _PortfolioPageState extends State<PortfolioPage> {
 
     return Column(
       children: [
-        // 顶部总览区
         Container(
           width: double.infinity, margin: const EdgeInsets.all(16), padding: const EdgeInsets.all(24),
           decoration: BoxDecoration(
@@ -304,7 +307,7 @@ class _PortfolioPageState extends State<PortfolioPage> {
   }
 }
 
-// ================= 2. 详情页 (已修复跨域) =================
+// ================= 2. 详情页 (更换新代理) =================
 
 class FundDetailPage extends StatefulWidget {
   final String code;
@@ -331,11 +334,13 @@ class _FundDetailPageState extends State<FundDetailPage> {
     _fetchHistoryData();
   }
 
+  // === 修复点：历史净值请求 ===
   Future<void> _fetchHistoryData() async {
     try {
-      // === 修复点 2：获取历史净值，添加 corsproxy.io 前缀 ===
-      final url = Uri.parse("https://corsproxy.io/?https://fundmobapi.eastmoney.com/FundMNewApi/FundMNHisNetList?product=EFund&appType=ttjj&FCODE=${widget.code}&PAGEINDEX=1&PAGESIZE=20");
-      final response = await http.get(url);
+      final targetUrl = "https://fundmobapi.eastmoney.com/FundMNewApi/FundMNHisNetList?product=EFund&appType=ttjj&FCODE=${widget.code}&PAGEINDEX=1&PAGESIZE=20";
+      final proxyUrl = Uri.parse("https://api.allorigins.win/raw?url=${Uri.encodeComponent(targetUrl)}");
+      
+      final response = await http.get(proxyUrl);
       if (response.statusCode == 200) {
         String body = utf8.decode(response.bodyBytes);
         final data = json.decode(body);
@@ -541,8 +546,8 @@ class FundSearchDelegate extends SearchDelegate {
   Widget _search() {
     if (query.length < 2) return const SizedBox();
     return FutureBuilder(
-      // === 修复点 3：搜索基金，添加 corsproxy.io 前缀 ===
-      future: http.get(Uri.parse("https://corsproxy.io/?https://fundsuggest.eastmoney.com/FundSearch/api/FundSearchAPI.ashx?m=1&key=$query")),
+      // === 修复点：基金搜索也换新代理 ===
+      future: http.get(Uri.parse("https://api.allorigins.win/raw?url=${Uri.encodeComponent('https://fundsuggest.eastmoney.com/FundSearch/api/FundSearchAPI.ashx?m=1&key=$query')}")),
       builder: (context, snapshot) {
         if (!snapshot.hasData) return const Center(child: CupertinoActivityIndicator());
         try {
