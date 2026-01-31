@@ -3,7 +3,7 @@ on: [push, workflow_dispatch]
 
 jobs:
   build:
-    runs-on: ubuntu-latest # 使用 Linux，速度快，没那么多破事
+    runs-on: ubuntu-latest
     
     steps:
       - uses: actions/checkout@v3
@@ -15,8 +15,10 @@ jobs:
       - run: flutter create .
       - run: flutter pub get
       
-      # 编译成网页版
-      - run: flutter build web --release --no-tree-shake-icons
+      # === 核心修复：强制使用 HTML 渲染器 ===
+      # 1. --base-href "/-/" : 对应你的仓库名 "-"
+      # 2. --web-renderer html : 解决白屏，加载极快
+      - run: flutter build web --release --base-href "/-/" --web-renderer html --no-tree-shake-icons
 
       # 发布到 GitHub Pages
       - name: Deploy to GitHub Pages
