@@ -12,55 +12,70 @@ jobs:
         with:
           channel: 'stable'
           
-      # 1. 生成 iOS 项目
+      # 1. 生成项目
       - name: Create iOS folders
         run: flutter create .
 
-      # 2. 【核心】使用 Python 脚本精准修改项目配置
-      # 相比 sed 命令，这种方式更稳定，不会因为空格或格式问题失败
-      - name: Patch Xcode Project with Python
+      # 2. 【核心】使用 Python 实施“伪造签名”欺骗战术
+      - name: Fake Signing Setup
         run: |
           python3 -c "
-          import sys
+          import re
           
           file_path = 'ios/Runner.xcodeproj/project.pbxproj'
-          
           with open(file_path, 'r') as file:
               content = file.read()
           
-          # 1. 强制改为手动签名 (Manual)
-          content = content.replace('ProvisioningStyle = Automatic;', 'ProvisioningStyle = Manual;')
+          # 1. 将 'Automatic' 替换为 'Manual' (忽略空格差异)
+          content = re.sub(r'ProvisioningStyle\s*=\s*Automatic;', 'ProvisioningStyle = Manual;', content)
           
-          # 2. 暴力移除开发团队 ID (支持多种格式)
-          import re
-          # 删除 DevelopmentTeam = XXXXX; 这一行
-          content = re.sub(r'DevelopmentTeam = [^;]*;', 'DevelopmentTeam = \"\";', content)
+          # 2. 删除 DevelopmentTeam (整行删除)
+          content = re.sub(r'DevelopmentTeam\s*=\s*[^;]*;', 'DevelopmentTeam = \"\";', content)
           
-          # 3. 强制关闭签名要求
-          content = content.replace('CODE_SIGNING_REQUIRED = YES;', 'CODE_SIGNING_REQUIRED = NO;')
-          content = content.replace('CODE_SIGNING_ALLOWED = YES;', 'CODE_SIGNING_ALLOWED = NO;')
+          # 3. 关键：将签名身份改为 '-' (Ad Hoc 伪签名)，骗过 Xcode
+          content = re.sub(r'CODE_SIGN_IDENTITY\s*=\s*\"iPhone Developer\";', 'CODE_SIGN_IDENTITY = \"-\";', content)
+          content = re.sub(r'\"CODE_SIGN_IDENTITY\[sdk=iphoneos\*\]\"\s*=\s*\"iPhone Developer\";', '\"CODE_SIGN_IDENTITY[sdk=iphoneos*]\" = \"-\";', content)
+          
+          # 4. 关闭强制签名要求
+          content = re.sub(r'CODE_SIGNING_REQUIRED\s*=\s*YES;', 'CODE_SIGNING_REQUIRED = NO;', content)
+          content = re.sub(r'CODE_SIGNING_ALLOWED\s*=\s*YES;', 'CODE_SIGNING_ALLOWED = NO;', content)
           
           with open(file_path, 'w') as file:
               file.write(content)
-          
-          print('✅ Python 脚本：已强制修改 Xcode 项目文件！')
+          print('✅ Python：已完成伪签名配置！')
           "
 
-      # 3. 双重保险：修改 Flutter 配置文件
+      # 3. 双重保险：修改 Flutter 配置文件，注入伪签名
       - name: Patch XCConfig
         run: |
           CONFIG="ios/Flutter/Release.xcconfig"
-          echo "CODE_SIGNING_ALLOWED=NO" >> $CONFIG
+          echo "CODE_SIGN_IDENTITY=-" >> $CONFIG
           echo "CODE_SIGNING_REQUIRED=NO" >> $CONFIG
-          echo "CODE_SIGN_IDENTITY=" >> $CONFIG
-          echo "EXPANDED_CODE_SIGN_IDENTITY=" >> $CONFIG
+          echo "CODE_SIGNING_ALLOWED=NO" >> $CONFIG
+
+      # 4. 三重保险：修改 Podfile，让第三方库也不要签名
+      - name: Patch Podfile
+        run: |
+          # 向 ios/Podfile 尾部追加一段 Ruby 代码，强制关闭所有 Pod 的签名
+          cat <<EOF >> ios/Podfile
+          
+          post_install do |installer|
+            installer.pods_project.targets.each do |target|
+              target.build_configurations.each do |config|
+                config.build_settings['CODE_SIGNING_REQUIRED'] = 'NO'
+                config.build_settings['CODE_SIGNING_ALLOWED'] = 'NO'
+                config.build_settings['EXPANDED_CODE_SIGN_IDENTITY'] = '-'
+              end
+            end
+          end
+          EOF
 
       - run: flutter pub get
       
-      # 4. 打包
+      # 5. 打包 (带上 --no-codesign)
       - run: flutter build ios --release --no-codesign
       
-      # 5. 生成 IPA
+      # 6. 生成 IPA
       - run: |
           mkdir Payload
           mv build/ios/iphoneos/Runner.app Payload/
