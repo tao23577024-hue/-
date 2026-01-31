@@ -12,39 +12,55 @@ jobs:
         with:
           channel: 'stable'
           
-      # 1. 生成项目
+      # 1. 生成 iOS 项目
       - name: Create iOS folders
         run: flutter create .
 
-      # 2. 【核心修复】将签名模式强制改为“手动”
-      - name: Force Manual Signing
+      # 2. 【核心】使用 Python 脚本精准修改项目配置
+      # 相比 sed 命令，这种方式更稳定，不会因为空格或格式问题失败
+      - name: Patch Xcode Project with Python
         run: |
-          # 定义项目文件路径
-          PBX="ios/Runner.xcodeproj/project.pbxproj"
+          python3 -c "
+          import sys
           
-          # 1. 把所有 "ProvisioningStyle = Automatic" 替换为 "Manual"
-          # 注意：这里去掉了分号，以防格式差异匹配不到
-          sed -i '' 's/ProvisioningStyle = Automatic/ProvisioningStyle = Manual/g' $PBX
+          file_path = 'ios/Runner.xcodeproj/project.pbxproj'
           
-          # 2. 强制关闭签名检查 (向项目文件里注入 "NO")
-          sed -i '' 's/CODE_SIGNING_REQUIRED = YES/CODE_SIGNING_REQUIRED = NO/g' $PBX
-          sed -i '' 's/CODE_SIGNING_ALLOWED = YES/CODE_SIGNING_ALLOWED = NO/g' $PBX
+          with open(file_path, 'r') as file:
+              content = file.read()
           
-          # 3. 再次向 Flutter 配置里写入“禁止签名”
+          # 1. 强制改为手动签名 (Manual)
+          content = content.replace('ProvisioningStyle = Automatic;', 'ProvisioningStyle = Manual;')
+          
+          # 2. 暴力移除开发团队 ID (支持多种格式)
+          import re
+          # 删除 DevelopmentTeam = XXXXX; 这一行
+          content = re.sub(r'DevelopmentTeam = [^;]*;', 'DevelopmentTeam = \"\";', content)
+          
+          # 3. 强制关闭签名要求
+          content = content.replace('CODE_SIGNING_REQUIRED = YES;', 'CODE_SIGNING_REQUIRED = NO;')
+          content = content.replace('CODE_SIGNING_ALLOWED = YES;', 'CODE_SIGNING_ALLOWED = NO;')
+          
+          with open(file_path, 'w') as file:
+              file.write(content)
+          
+          print('✅ Python 脚本：已强制修改 Xcode 项目文件！')
+          "
+
+      # 3. 双重保险：修改 Flutter 配置文件
+      - name: Patch XCConfig
+        run: |
           CONFIG="ios/Flutter/Release.xcconfig"
           echo "CODE_SIGNING_ALLOWED=NO" >> $CONFIG
           echo "CODE_SIGNING_REQUIRED=NO" >> $CONFIG
           echo "CODE_SIGN_IDENTITY=" >> $CONFIG
           echo "EXPANDED_CODE_SIGN_IDENTITY=" >> $CONFIG
-          
-          echo "已强制修改为手动签名模式！"
 
       - run: flutter pub get
       
-      # 3. 打包
+      # 4. 打包
       - run: flutter build ios --release --no-codesign
       
-      # 4. 生成文件
+      # 5. 生成 IPA
       - run: |
           mkdir Payload
           mv build/ios/iphoneos/Runner.app Payload/
