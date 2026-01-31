@@ -3,7 +3,8 @@ on: [push, workflow_dispatch]
 
 jobs:
   build:
-    runs-on: macos-latest
+    # 关键修改：降级到 macOS 13 (Xcode 14/15)，绕过新版 Xcode 的强制签名检查
+    runs-on: macos-13
     
     steps:
       - uses: actions/checkout@v3
@@ -12,32 +13,34 @@ jobs:
         with:
           channel: 'stable'
           
-      # 1. 生成 iOS 项目骨架
+      # 1. 生成 iOS 项目
       - name: Create iOS folders
         run: flutter create .
 
-      # 2. 【双重暴力修复】禁止 Xcode 检查签名
-      - name: Force Disable Signing
+      # 2. 暴力破解签名限制 (针对旧版环境优化)
+      - name: Disable Signing
         run: |
-          # 方案 A: 修改 Flutter 的配置文件 (这是最高优先级的覆盖)
-          # 告诉 Flutter：不需要签名，也不允许签名
+          # 1. 注入配置到 Flutter 配置文件 (最高优先级)
           echo "CODE_SIGNING_REQUIRED=NO" >> ios/Flutter/Release.xcconfig
           echo "CODE_SIGNING_ALLOWED=NO" >> ios/Flutter/Release.xcconfig
           echo "CODE_SIGN_IDENTITY=" >> ios/Flutter/Release.xcconfig
           echo "EXPANDED_CODE_SIGN_IDENTITY=" >> ios/Flutter/Release.xcconfig
           
-          # 方案 B: 直接修改 Xcode 项目文件
-          # 1. 把“自动签名”改成“手动签名”
-          sed -i '' 's/ProvisioningStyle = Automatic;/ProvisioningStyle = Manual;/g' ios/Runner.xcodeproj/project.pbxproj
-          # 2. 把“开发团队 ID”清空
-          sed -i '' 's/DevelopmentTeam = [^;]*;/DevelopmentTeam = "";/g' ios/Runner.xcodeproj/project.pbxproj
+          # 2. 修改 Xcode 项目文件 (使用更宽松的正则匹配)
+          # 将自动签名改为手动
+          sed -i '' 's/ProvisioningStyle = .*/ProvisioningStyle = Manual;/g' ios/Runner.xcodeproj/project.pbxproj
+          # 清空开发团队 ID
+          sed -i '' 's/DevelopmentTeam = .*/DevelopmentTeam = "";/g' ios/Runner.xcodeproj/project.pbxproj
+          # 强制关闭签名要求
+          sed -i '' 's/CODE_SIGNING_REQUIRED = .*/CODE_SIGNING_REQUIRED = NO;/g' ios/Runner.xcodeproj/project.pbxproj
+          sed -i '' 's/CODE_SIGNING_ALLOWED = .*/CODE_SIGNING_ALLOWED = NO;/g' ios/Runner.xcodeproj/project.pbxproj
 
       - run: flutter pub get
       
-      # 3. 打包
+      # 3. 打包 (这一步在 macos-13 上通常能通过)
       - run: flutter build ios --release --no-codesign
       
-      # 4. 压缩成 IPA
+      # 4. 生成 IPA
       - run: |
           mkdir Payload
           mv build/ios/iphoneos/Runner.app Payload/
