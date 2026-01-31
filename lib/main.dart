@@ -7,7 +7,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:google_generative_ai/google_generative_ai.dart';
 
 // ================= 配置区 =================
-const String apiKey = '在此处粘贴你的API_KEY';
+const String apiKey = 'AIzaSyC-XpOZ6hvyviJa65_Si0Ka3gji9hhSUt8';
 // ========================================
 
 void main() {
