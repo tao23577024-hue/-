@@ -150,7 +150,7 @@ class _PortfolioPageState extends State<PortfolioPage> {
     // 并发请求优化速度
     final requests = myFunds.keys.map((code) async {
       try {
-        final url = Uri.parse("http://fundgz.1234567.com.cn/js/$code.js?rt=${DateTime.now().millisecondsSinceEpoch}");
+        final url = Uri.parse("https://fundgz.1234567.com.cn/js/$code.js?rt=${DateTime.now().millisecondsSinceEpoch}");
         final response = await http.get(url).timeout(const Duration(seconds: 3));
         
         if (response.statusCode == 200) {
@@ -547,7 +547,7 @@ class FundSearchDelegate extends SearchDelegate {
   Widget _search() {
     if (query.length < 2) return const SizedBox();
     return FutureBuilder(
-      future: http.get(Uri.parse("http://fundsuggest.eastmoney.com/FundSearch/api/FundSearchAPI.ashx?m=1&key=$query")),
+      future: http.get(Uri.parse("https://fundsuggest.eastmoney.com/FundSearch/api/FundSearchAPI.ashx?m=1&key=$query")),
       builder: (context, snapshot) {
         if (!snapshot.hasData) return const Center(child: CupertinoActivityIndicator());
         try {
