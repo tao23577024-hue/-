@@ -15,12 +15,8 @@ jobs:
       - run: flutter create .
       - run: flutter pub get
       
-      # === 修复点 ===
-      # 注意：下面所有参数前面都是两个横杠 ( -- )
-      # 1. --release
-      # 2. --base-href
-      # 3. --web-renderer
-      # 4. --no-tree-shake-icons
+      # === 只有这里改了 ===
+      # 请看清楚：base-href 前面是两个横杠 --
       - run: flutter build web --release --base-href "/-/" --web-renderer html --no-tree-shake-icons
 
       - name: Deploy to GitHub Pages
