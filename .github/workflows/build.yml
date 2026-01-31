@@ -15,10 +15,16 @@ jobs:
       - run: flutter create .
       - run: flutter pub get
       
-      # === 请睁大眼睛检查这一行 ===
-      # 下面所有参数前面，全是两个横杠 ( -- )
-      # 尤其是 --base-href，如果只有一个横杠，绝对会报错！
-      - run: flutter build web --release --base-href "/-/" --web-renderer html --no-tree-shake-icons
+      # === 【深度修复核心】 ===
+      # 我们不依赖脆弱的命令行参数，而是直接修改源代码文件。
+      # 这行命令的意思是：找到 index.html 里的 base 标签，强行替换为你的仓库路径 "/-/"
+      - name: Update Base Href via File System
+        run: sed -i 's|<base href=.*>|<base href="/-/">|g' web/index.html
+      
+      # === 打包命令 (简化版) ===
+      # 这里的命令里去掉了 --base-href，因为它已经直接写在文件里了。
+      # 这样就绝对不会报 "找不到选项" 的错误了。
+      - run: flutter build web --release --web-renderer html --no-tree-shake-icons
 
       - name: Deploy to GitHub Pages
         uses: peaceiris/actions-gh-pages@v3
