@@ -15,16 +15,26 @@ jobs:
       - run: flutter create .
       - run: flutter pub get
       
-      # === 【深度修复核心】 ===
-      # 我们不依赖脆弱的命令行参数，而是直接修改源代码文件。
-      # 这行命令的意思是：找到 index.html 里的 base 标签，强行替换为你的仓库路径 "/-/"
-      - name: Update Base Href via File System
-        run: sed -i 's|<base href=.*>|<base href="/-/">|g' web/index.html
-      
-      # === 打包命令 (简化版) ===
-      # 这里的命令里去掉了 --base-href，因为它已经直接写在文件里了。
-      # 这样就绝对不会报 "找不到选项" 的错误了。
-      - run: flutter build web --release --web-renderer html --no-tree-shake-icons
+      # === 第一步：最简单的打包 ===
+      # 去掉了所有可能报错的复杂参数
+      # 只保留 --release (发布版)
+      - run: flutter build web --release
+
+      # === 第二步：手动修改文件 (避坑核心) ===
+      # 既然命令行传参数容易错，我们就直接改生成好的文件
+      # 1. 解决白屏路径问题 (把 / 改成 /-/ )
+      # 2. 解决国内加载慢问题 (开启 HTML 渲染)
+      - name: Fix Config manually
+        run: |
+          # 找到 index.html 文件
+          INDEX="build/web/index.html"
+          
+          # 1. 强制修改路径 (Base Href)
+          sed -i 's|<base href="/">|<base href="/-/">|g' $INDEX
+          
+          # 2. 强制开启 HTML 渲染模式 (注入一段脚本)
+          # 这比在命令行加参数稳得多
+          sed -i 's|</body>|<script>window.flutterWebRenderer="html";</script></body>|g' $INDEX
 
       - name: Deploy to GitHub Pages
         uses: peaceiris/actions-gh-pages@v3
