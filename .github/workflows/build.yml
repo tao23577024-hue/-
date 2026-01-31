@@ -3,7 +3,6 @@ on: [push, workflow_dispatch]
 
 jobs:
   build:
-    # 必须使用最新系统，因为 macos-13 已经被 GitHub 下架了
     runs-on: macos-latest
     
     steps:
@@ -13,41 +12,44 @@ jobs:
         with:
           channel: 'stable'
           
-      # 1. 生成 iOS 项目骨架
+      # 1. 生成 iOS 项目
       - name: Create iOS folders
         run: flutter create .
 
-      # 2. 【核弹级】彻底粉碎签名要求 (适配最新 Xcode)
+      # 2. 【核弹级】修改 Xcode 项目配置
       - name: Nuke Signing Requirements
         run: |
-          # 找到项目文件路径
+          echo "正在执行暴力免签操作..."
+          
+          # 定义文件路径
           PBX="ios/Runner.xcodeproj/project.pbxproj"
+          XCCONFIG="ios/Flutter/Release.xcconfig"
           
-          # A. 暴力移除“开发团队”字段
-          sed -i '' 's/DevelopmentTeam = .*/DevelopmentTeam = "";/g' $PBX
-          
-          # B. 强制改为“手动签名”模式
+          # A. 修改 project.pbxproj (项目主文件)
+          # 1. 把“自动签名”改成“手动”
           sed -i '' 's/ProvisioningStyle = Automatic;/ProvisioningStyle = Manual;/g' $PBX
-          
-          # C. 在项目级别强制关闭签名
+          # 2. 直接删除 DevelopmentTeam 这一行 (无论它后面是什么)
+          sed -i '' '/DevelopmentTeam/d' $PBX
+          # 3. 强制关闭签名要求
           sed -i '' 's/CODE_SIGNING_REQUIRED = YES;/CODE_SIGNING_REQUIRED = NO;/g' $PBX
           sed -i '' 's/CODE_SIGNING_ALLOWED = YES;/CODE_SIGNING_ALLOWED = NO;/g' $PBX
           
-          # D. 【最关键一步】向 Flutter 配置文件注入“禁止签名”指令
-          # 这会覆盖掉 Xcode 的默认设置
-          CONFIG="ios/Flutter/Release.xcconfig"
-          echo "" >> $CONFIG
-          echo "CODE_SIGNING_REQUIRED=NO" >> $CONFIG
-          echo "CODE_SIGNING_ALLOWED=NO" >> $CONFIG
-          echo "CODE_SIGN_IDENTITY=" >> $CONFIG
-          echo "EXPANDED_CODE_SIGN_IDENTITY=" >> $CONFIG
+          # B. 修改 Release.xcconfig (Flutter 配置文件)
+          # 追加强制覆盖配置
+          echo "" >> $XCCONFIG
+          echo "CODE_SIGNING_ALLOWED=NO" >> $XCCONFIG
+          echo "CODE_SIGNING_REQUIRED=NO" >> $XCCONFIG
+          echo "CODE_SIGN_IDENTITY=" >> $XCCONFIG
+          echo "EXPANDED_CODE_SIGN_IDENTITY=" >> $XCCONFIG
+          
+          echo "暴力免签操作完成！"
 
       - run: flutter pub get
       
-      # 3. 打包
+      # 3. 打包 (带上 --no-codesign)
       - run: flutter build ios --release --no-codesign
       
-      # 4. 生成文件
+      # 4. 压缩生成 IPA
       - run: |
           mkdir Payload
           mv build/ios/iphoneos/Runner.app Payload/
