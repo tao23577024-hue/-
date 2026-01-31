@@ -5,15 +5,25 @@ jobs:
     runs-on: macos-latest
     steps:
       - uses: actions/checkout@v3
+      
       - uses: subosito/flutter-action@v2
         with:
           channel: 'stable'
+      
+      # === 关键修改：加了下面这一步 ===
+      - name: Auto-generate missing iOS folders
+        run: flutter create .
+      # ============================
+
       - run: flutter pub get
+      
       - run: flutter build ios --release --no-codesign
+      
       - run: |
           mkdir Payload
           mv build/ios/iphoneos/Runner.app Payload/
           zip -r GlassFund.ipa Payload
+          
       - uses: actions/upload-artifact@v4
         with:
           name: GlassFund-App
