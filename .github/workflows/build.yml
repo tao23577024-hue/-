@@ -1,9 +1,9 @@
-name: Build IPA
+name: Deploy Web App
 on: [push, workflow_dispatch]
 
 jobs:
   build:
-    runs-on: macos-latest
+    runs-on: ubuntu-latest # 使用 Linux，速度快，没那么多破事
     
     steps:
       - uses: actions/checkout@v3
@@ -12,43 +12,15 @@ jobs:
         with:
           channel: 'stable'
           
-      - name: Create iOS folders
-        run: flutter create .
-
-      # 【核心修复】单行命令注入，绝对不会冲突
-      - name: Patch Podfile and Project
-        run: |
-          # 1. 修改项目文件：强制改为手动签名
-          PBX="ios/Runner.xcodeproj/project.pbxproj"
-          sed -i '' 's/ProvisioningStyle = Automatic;/ProvisioningStyle = Manual;/g' $PBX
-          sed -i '' 's/CODE_SIGNING_REQUIRED = YES;/CODE_SIGNING_REQUIRED = NO;/g' $PBX
-          sed -i '' 's/CODE_SIGNING_ALLOWED = YES;/CODE_SIGNING_ALLOWED = NO;/g' $PBX
-          # 删除 Team ID
-          sed -i '' '/DevelopmentTeam/d' $PBX
-
-          # 2. 修改 Podfile：使用 sed 在现有的 post_install 后面插入一行代码
-          # 这行 Ruby 代码的作用是：遍历所有第三方库，把它们的签名要求全部关掉
-          PODFILE="ios/Podfile"
-          sed -i '' "/post_install do |installer|/a\\
-            installer.pods_project.targets.each { |t| t.build_configurations.each { |c| c.build_settings['CODE_SIGNING_REQUIRED'] = 'NO'; c.build_settings['CODE_SIGNING_ALLOWED'] = 'NO'; c.build_settings['CODE_SIGN_IDENTITY'] = '-'; } }" $PODFILE
-
-      - name: Patch XCConfig
-        run: |
-          CONFIG="ios/Flutter/Release.xcconfig"
-          echo "CODE_SIGN_IDENTITY=-" >> $CONFIG
-          echo "CODE_SIGNING_REQUIRED=NO" >> $CONFIG
-          echo "CODE_SIGNING_ALLOWED=NO" >> $CONFIG
-
+      - run: flutter create .
       - run: flutter pub get
       
-      - run: flutter build ios --release --no-codesign
-      
-      - run: |
-          mkdir Payload
-          mv build/ios/iphoneos/Runner.app Payload/
-          zip -r GlassFund.ipa Payload
-          
-      - uses: actions/upload-artifact@v4
+      # 编译成网页版
+      - run: flutter build web --release --no-tree-shake-icons
+
+      # 发布到 GitHub Pages
+      - name: Deploy to GitHub Pages
+        uses: peaceiris/actions-gh-pages@v3
         with:
-          name: GlassFund-App
-          path: GlassFund.ipa
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          publish_dir: ./build/web
