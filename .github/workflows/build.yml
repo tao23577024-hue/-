@@ -1,22 +1,39 @@
 name: Build IPA
 on: [push, workflow_dispatch]
+
 jobs:
   build:
     runs-on: macos-latest
+    
     steps:
       - uses: actions/checkout@v3
       
       - uses: subosito/flutter-action@v2
         with:
           channel: 'stable'
-      
-      # === 关键修改：加了下面这一步 ===
-      - name: Auto-generate missing iOS folders
+          
+      # 1. 先生成 iOS 项目骨架
+      - name: Create iOS folders
         run: flutter create .
-      # ============================
+
+      # 2. 【核心修复】暴力修改项目文件，禁止 Xcode 检查签名
+      - name: Disable Signing in Xcode Project
+        run: |
+          # 查找 project.pbxproj 文件位置
+          PROJ_PATH="ios/Runner.xcodeproj/project.pbxproj"
+          
+          # 关闭自动签名
+          sed -i '' 's/ProvisioningStyle = Automatic;/ProvisioningStyle = Manual;/g' $PROJ_PATH
+          # 强制允许不签名
+          sed -i '' 's/CODE_SIGNING_ALLOWED = YES;/CODE_SIGNING_ALLOWED = NO;/g' $PROJ_PATH
+          # 强制不需要签名
+          sed -i '' 's/CODE_SIGNING_REQUIRED = YES;/CODE_SIGNING_REQUIRED = NO;/g' $PROJ_PATH
+          # 清空开发团队 ID
+          sed -i '' 's/DevelopmentTeam = .*/DevelopmentTeam = "";/g' $PROJ_PATH
 
       - run: flutter pub get
       
+      # 3. 打包
       - run: flutter build ios --release --no-codesign
       
       - run: |
